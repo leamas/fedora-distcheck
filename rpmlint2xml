@@ -1,0 +1,155 @@
+#!/usr/bin/env python
+#    This program is free software; you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation; either version 2 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License along
+#    with this program; if not, write to the Free Software Foundation, Inc.,
+#    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+'''
+Convert rpmlint output to firehose-compatible XML.
+
+Synopsis:
+    rpmlint2xml <specfile> <resultsfile>
+
+specfile:
+   The file being checked by rpmlint.
+resultfile:
+   The rpmlint results file.
+
+Writes resulting xml on stdout.
+
+See: https://github.com/fedora-static-analysis/firehose
+'''
+
+# pylint: disable=W0621,C0103
+
+
+import re
+import subprocess
+import sys
+import xml.etree.ElementTree as ET
+import xml.dom.minidom
+
+import rpm
+
+
+def get_specfile(path):
+    ' Return a (specfile, sha224sum) tuple. '
+    path = path.strip()
+    cs = subprocess.check_output(['sha224sum', path]).split()[0]
+    if '/' in path:
+        path = path.rsplit('/', 1)[1]
+    return path, cs
+
+
+def get_version():
+    ''' rpmlint version. '''
+    raw = subprocess.check_output(['rpmlint', '--version'])
+    return re.search('[0-9]+[.][0-9]+', raw).group()
+
+
+def parse_spec_nvr(specpath):
+    ''' return name-version-release dict for spec. '''
+    try:
+        spec = rpm.TransactionSet().parseSpec(specpath)
+    except Exception as ex:                     # pylint: disable=W0703
+        print "Can't parse specfile: " + ex.__str__()
+        sys.exit(2)
+    header = spec.sourceHeader
+    return {'name': header[rpm.RPMTAG_NAME],
+            'version': header[rpm.RPMTAG_VERSION],
+            'release': header[rpm.RPMTAG_RELEASE]}
+
+
+def create_xmltree(path, nvr, cs, lintversion):
+    ''' Create the basic xml report complete with <metadata>. '''
+    root = ET.Element('analysis')
+    metadata = ET.SubElement(root, 'metadata')
+    ET.SubElement(metadata, 'generator', {'name': 'rpmlint',
+                                          'version': lintversion})
+    file_ = ET.SubElement(metadata, 'file', {'given-path': path})
+    ET.SubElement(file_, 'hash', {'alg': 'sha224', 'hexdigest': cs})
+    sut = ET.SubElement(metadata, 'sut')
+    ET.SubElement(sut, 'source-rpm', nvr)
+    ET.SubElement(root, 'results')
+    return root
+
+
+def add_xml_result(root, result, descriptions):
+    ''' Add a rpmlint warning/error to the results. '''
+    path = root.find('metadata/file').attrib['given-path']
+    results = root.find('results')
+    if not result['name'] in descriptions:
+        d = subprocess.check_output(['rpmlint', '-I', result['name']])
+        descriptions[result['name']] = d
+    issue = ET.SubElement(results,
+                          'issue',
+                          {'test-id': result['name'],
+                           'severity': result['severity']})
+    message = ET.SubElement(issue, 'message')
+    message.text = descriptions[result['name']]
+    location = ET.SubElement(issue, 'location')
+    ET.SubElement(location, 'file', {'given-path': path})
+    if 'line' in result:
+        ET.SubElement(location, 'point', {'line': result['line']})
+    ET.SubElement(issue, 'notes').text = result['text']
+
+
+def parse_issues(resultpath):
+    ''' Convert rpmlint results to a list of issues. '''
+    with open(resultpath) as f:
+        lines = f.readlines()
+    issues = []
+    for line in [l for l in lines if ':' in l]:
+        issue = {}
+        issue['path'], line = line.split(':', 1)
+        nr_or_severity, line = line.split(':', 1)
+        if re.search('[0-9]+', nr_or_severity):
+             issue['line'] = nr_or_severity
+        else:
+             issue['severity'] = nr_or_severity
+        if not 'severity' in issue:
+             issue['severity'], line = line.split(':', 1)
+        line = line.strip()
+        if ' ' in line:
+            issue['name'], issue['text'] = line.split(' ', 1)
+        else:
+            issue['name'], issue['text'] = line, ''
+        for key in issue.iterkeys():
+            issue[key] = issue[key].strip()
+        issues.append(dict(issue))
+    return issues
+
+
+if __name__ == "__main__":
+    if len(sys.argv) == 2 and sys.argv[1] == '-h' or sys.argv[1] == '--help':
+        print sys.modules[__name__].__doc__
+        sys.exit(0)
+    elif len(sys.argv) != 3:
+        print sys.modules[__name__].__doc__
+        sys.exit(1)
+    specpath = sys.argv[1]
+    resultpath = sys.argv[2]
+
+    lintversion = get_version()
+    nvr = parse_spec_nvr(specpath)
+    specpath, cs = get_specfile(specpath)
+    issues = parse_issues(resultpath)
+    descriptions = {}
+
+    root = create_xmltree(specpath, nvr, cs, lintversion)
+    for issue in issues:
+        add_xml_result(root, issue, descriptions)
+    dom = xml.dom.minidom.parseString(ET.tostring(root))
+    sys.stdout.write(dom.toprettyxml(indent='    '))
+
+
+# vim: set expandtab ts=4 sw=4:

@@ -1,0 +1,13 @@
+#!/bin/bash
+#
+# invoke dist-check-run on all subdirectories with mock disabled.
+set -x
+
+here=$( dirname $( readlink -fn $0 ))
+here=$( readlink -fn $here/.. )
+
+export REVIEW_LOGLEVEL=warning
+export PATH=$here/bin:$PATH
+cd $1
+echo "Resuming tests at $(date) " >> run.log
+ls -d  *  | xargs $here/dist-check-run.py &>> run.log

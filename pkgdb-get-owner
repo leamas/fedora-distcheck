@@ -1,0 +1,42 @@
+#!/usr/bin/env python
+
+'''
+Get owner of a package as listed in fedora pkgdb.
+
+Synopsis:
+   pkgdb-owner <package>
+
+Print one line for the package. If there's different owners
+for different branches, they are printed as a ' '-separated list.
+
+
+'''
+
+import sys
+
+from fedora.client import PackageDB
+
+client = PackageDB('https://admin.fedoraproject.org/pkgdb')
+
+if len(sys.argv) != 2:
+    print sys.modules[__name__].__doc__
+    sys.exit(2)
+
+if sys.argv[1] == '-h' or sys.argv[1] == '--help':
+    print sys.modules[__name__].__doc__
+    sys.exit(0)
+
+info = client.send_request('/acls/name/' + sys.argv[1], auth=False)
+owners = set([])
+try:
+    for collection in info['packageListings']:
+        owners.add(collection['owner'])
+except KeyError:
+    print "No such package."
+    sys.exit(3)
+else:
+    print  ' '.join(list(owners))
+
+
+
+

@@ -1,0 +1,6 @@
+*.tar
+*.log
+work*
+bak
+FedoraReview
+report-tree

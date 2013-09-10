@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# Invoke with or from a directory created by dist-check-setup. Resets
+# all downloaded and build data.
+
+set -x
+
+[[ -n "$1" && -d "$1" ]] && cd "$1"
+
+pkg=${PWD##*/}
+sudo rm -rf $pkg
+sudo rm -rf *.rpm
+sudo rm -f fedora-review.log
+sudo rm -rf ../$pkg.results

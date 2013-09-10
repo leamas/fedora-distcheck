@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# dist-check-rpmlint - run rpmlint and rpmlint2xml in dirs.
+#
+# Synopsis:
+#     dist-check-rpmlint <directory [directory...]>
+#
+# Checks each argument directory for rpmlint.txt and rpmlint.xml,
+# creating them as needed from spec file in directory.
+
+
+function on_error()
+{
+    echo "Error parsing $PKG in directory $DIR"
+}
+
+here=$( dirname $( readlink -fn $0 ))
+
+
+PKG='None'
+trap "on_error" EXIT
+
+startdir="$PWD"
+for DIR in "$@"; do
+    [ -d "$DIR" ] || {
+       echo "Bad directory $DIR  (ignored)"
+       continue
+    }
+    test -f "$DIR/rpmlint.xml" && continue
+    cd $DIR
+    PKG=$( basename ${PWD%.results} )
+    echo $PKG:
+    test -f rpmlint.txt || rpmlint $PKG.spec >rpmlint.txt
+    $here/rpmlint2xml $PKG.spec rpmlint.txt >rpmlint.xml
+    cd $startdir
+done
+

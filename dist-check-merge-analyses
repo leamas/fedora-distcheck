@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+#Combine a stream of 'analysis-containers' to a common one.
+#
+
+awk ' BEGIN                   { print "<analysis-container>" }
+      /xml version="1.0"/     { next }
+      /analysis-container/    { next }
+                              { print $0 }
+      END                     { print "</analysis-container>" }'

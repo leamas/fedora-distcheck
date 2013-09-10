@@ -1,0 +1,50 @@
+#!/bin/bash
+#
+# merge rpmlint.xml's and report.xml's to one stream and feed it
+# to analyse. Apply xls filters on rpmlint.xml and report.xml in
+# the process.
+#
+# Synopsis: run-all <results dir> [analyze args]
+#
+# <result-dir>:
+#    The directory searched for rpmlint.xml and report.xml
+#
+# [analyse args]
+#    Passed verbatim to analyze, defaults to 'stats'.
+#
+#
+
+function usage()
+{
+    cat << EOF
+Usage: run-all <results dir> [analyze args]
+
+result-dir:
+   Directory searched for rpmlint.xml and report.xml.
+analyse args:
+   Passed verbatim to analyze, defaults to 'stats'.
+EOF
+}
+
+[ -z "$1" ] && { usage; exit 1; }
+dir="$1"
+shift
+[ -d "$dir" ] || { echo "Bad directory: $dir" >&2; exit 1; }
+
+
+here=$( dirname $( readlink -fn $0 ))
+scripts=$( readlink -fn $here/.. )
+
+files=$( mktemp )
+rpmfiles=$( mktemp )
+
+find work3 -maxdepth 2 -name report.xml > $files
+find work3 -maxdepth 2 -name rpmlint.xml > $rpmfiles
+
+(
+    cat $( cat $files ) |
+           ./dist-check-merge-analyses | xsltproc fedora-review.xsl -
+    cat $( cat $rpmfiles ) |
+           ./dist-check-merge-analyses | xsltproc rpmlint.xsl  -
+) | ./dist-check-merge-analyses | ./analyze $@
+

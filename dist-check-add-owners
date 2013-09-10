@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# Add owner links to existing tree. Expects list of *.owner files
+# as argument.
+#
+# Synopsis:
+#     dist-check-add-owners $(find . -name \*.owner)
+#
+
+function onerror()
+{
+    echo "Error in: $link"
+    exit 2
+}
+
+
+trap onerror ERR
+
+for link in $@; do
+    owner=$( basename $link .owner )
+    pkg=$( basename $( dirname $link ))
+    test -d report-tree/owners/$owner || mkdir -p report-tree/owners/$owner
+    if test -f report-tree/all-packages/$pkg; then
+        ln -sf ../../all-packages/$pkg report-tree/owners/$owner/$pkg
+    fi
+done

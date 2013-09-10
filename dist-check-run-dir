@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# Run f-r with or in a directory created by dist-check-setup and with
+# everything downloaded e. g. using download-dir.
+
+[[ -n "$1" && -d "$1" ]] && cd "$1"
+
+here=$( dirname $( readlink -fn $0 ))
+
+readonly DISTTAG='fc20'
+export XDG_CACHE_HOME=$PWD
+export REVIEW_LOGLEVEL=${REVIEW_LOGLEVEL:-info}
+mockpath=$( readlink -fn  $here/../bin/mock )
+[ -x $mockpath ] && export PATH="$( dirname $mockpath ):$PATH"
+
+arch=$(uname -i)
+my_skipped="CheckNoNameConflict,CheckOwnDirs"
+
+echo PATH: $PATH
+
+try-fedora-review -rpn ${PWD##*/} -m fedora-rawhide-$arch \
+    -x ${REVIEW_SKIP:-$my_skipped} -D DISTTAG=fc20 -D BATCH
+
