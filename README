@@ -1,7 +1,7 @@
 dist-check README
 
-Here are two scripts which together will run fedora-review on all packages.
-It takes a long, long time but seems to work somehow.
+Here are scripts which together will run fedora-review  and rpmlint on all
+packages.  It takes a long, long time but seems to work somehow.
 
 The basic idea is that we need to
 - List all packages (done from the webpages).
@@ -9,7 +9,10 @@ The basic idea is that we need to
 - Download the packages when it's time for review, in parallel with
   review work.
 - Discard all downloaded packages when the review goes well.
+- Run rpmlint on the packages.
+- Use the generated rpmlint.xml and report.xml to build reports.
 
+## Running fedora-review.
 The first script is dist-check-setup. It will create a directory for each
 source package. In the directory are references to all package built from the
 source. This is not big (~100 MB) and can be reused.
@@ -24,17 +27,31 @@ there:
     $ mkdir  work
     $ cd work
     $ ../dist-check-setup # wait for hours
-    $ ls | ../dist-check-run |& tee run.log  # wait for days...
+    $ ../dist-check-run $( ls ) |& tee run.log  # wait for days...
 
 You probably want to use "export REVIEW_LOGLEVEL=warning" to decrease the
-noise.
+noise. See the run-tests file in examples. This produces the file report.xml
+in the *.results directories.
 
-Also you might want to disable mock (speeds up). Do so by including
-dist-check/bin in PATH in the beginning, so f-r finds "our" mock mock (sic!)
-instead of /usr/bin/mock.
 
-If you get signing errors for the rawhide packages you will find the keys
-to install in the generic-release package (also in rawhide!)
+## Running rpmlint
+
+The script dist-check-rpmlint runs rpmlint on the directories created in
+setp above, creating rpmlint.xml
+
+## Creatnig reports:
+
+Reports are created from rpmlint.xml and report.xml files. To basic tools
+to create reports are
+- analyze, which expects a stream of xml data. It can produce several types
+  of reports including overall stats (default) and a tree with issues by
+  package, package by issues and package by owner.
+- dist-check-merge-analyses, which merges multiple inpot xml streams to one.
+- *.xsl files used to filter the input.
+- report-tree-add-owners, which uses owner links created by
+  dist-check-create-owners. The tree mst be there, created by analyze mktree.
+
+There's an example how to use this in examples/run-all
 
 ## Post things:
 

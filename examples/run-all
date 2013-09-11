@@ -43,8 +43,10 @@ find work3 -maxdepth 2 -name rpmlint.xml > $rpmfiles
 
 (
     cat $( cat $files ) |
-           ./dist-check-merge-analyses | xsltproc fedora-review.xsl -
+        $scripts/dist-check-merge-analyses |
+            xsltproc $scripts/fedora-review.xsl -
     cat $( cat $rpmfiles ) |
-           ./dist-check-merge-analyses | xsltproc rpmlint.xsl  -
+        $scripts/dist-check-merge-analyses |
+             xsltproc $scripts/rpmlint.xsl  -
 ) | ./dist-check-merge-analyses | ./analyze $@
 

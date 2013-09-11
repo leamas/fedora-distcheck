@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# Add an owner link in each givne directory. Package name is deduced
+# from directory name, the link is ${owner}.owner
+
+here=$( dirname $( readlink -fn $0 ))
+ set -x
+
+startdir=$PWD
+for dir in $@; do
+    if [[ "$dir" == *.results ]]; then
+        continue
+    fi
+    [ -f $dir/*.owner ] && continue
+    pkg=$( basename $dir )
+    owner=$( $here/pkgdb-get-owner $pkg )
+    touch $dir/${owner}.owner
+done
+
